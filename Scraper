@@ -1,0 +1,205 @@
+<?php
+
+include('simple_html_dom.php');
+require_once 'PHPExcel.php';
+require_once 'PHPExcel/Writer/Excel2007.php';
+require_once 'Classes/PHPExcel/IOFactory.php';
+
+set_time_limit(0);
+error_reporting(E_ALL ^ E_NOTICE);
+$url = "http://www.homeadvisor.com/emc.Snow-Removal-Service-directory.-12067.html";
+
+$curl = curl_init(); 
+curl_setopt($curl,CURLOPT_URL, $url);
+curl_setopt($curl, CURLOPT_SSL_VERIFYPEER, FALSE);
+curl_setopt($curl, CURLOPT_COOKIESESSION, TRUE);
+curl_setopt($curl, CURLOPT_FOLLOWLOCATION, TRUE);
+curl_setopt($ch, CURLINFO_HEADER_OUT, true);
+curl_setopt($curl,CURLOPT_RETURNTRANSFER,true);
+curl_setopt($curl,CURLOPT_HEADER, false); 
+$result=curl_exec($curl);
+curl_close($curl);
+//echo $result;
+
+$html = new simple_html_dom(); 
+$html->load($result);
+
+$topcity = $html->find("a.emc-top-city");
+$num = sizeof($topcity);
+$spreadsheet = PHPExcel_IOFactory::load("SnowRemoval.xlsx");
+$spreadsheet->setActiveSheetIndex(0);
+$worksheet = $spreadsheet->getActiveSheet();
+for($c=0; $c < 50 ; $c++){
+	$url = 'http://www.homeadvisor.com'.$topcity[$c]->href;
+	$curl = curl_init(); 
+	curl_setopt($curl,CURLOPT_URL, $url);
+	curl_setopt($curl, CURLOPT_SSL_VERIFYPEER, FALSE);
+	curl_setopt($curl, CURLOPT_COOKIESESSION, TRUE);
+	curl_setopt($curl, CURLOPT_FOLLOWLOCATION, TRUE);
+	curl_setopt($curl,CURLOPT_RETURNTRANSFER,true);
+	curl_setopt($curl,CURLOPT_HEADER, false); 
+	$result=curl_exec($curl);
+	curl_close($curl);
+	$html = new simple_html_dom(); 
+	$html->load($result);
+	$count = $html->find('span[itemprop="name"]');
+	$count = sizeof($count);
+	$pages = $html->find("div[class=xl-pagination l-right t-heavy]" , 0);
+	$noPages = sizeof($pages->children);
+	//echo '<br>';
+	for($j=0; $j < $count; $j++){
+	$service_type = 'Snow Removal Services';
+	//echo "SERVICE TYPE:".' '.$service_type;
+	//echo '<br>';
+	$cs = $html->find('span[itemprop="title"]', 3);
+	$City = $cs->innertext;
+	//echo "City:".' '.$City;
+	//echo '<br>';
+	$cs = $html->find('span[itemprop="title"]', 2);
+	$State = $cs->innertext;
+	//echo "State:".' '.$State;
+	//echo '<br>';
+	$name = $html->find('span[itemprop="name"]', $j)->innertext;
+	//echo "NAME:".' '.$name;
+	//echo '<br>';
+	$review = $html->find("div[class=xmd-listing-about-company l-column note]", $j);
+	$rating = $review->children(1);
+	$telephone = $html->find('span[itemprop="telephone"]', $j)->innertext;
+	//echo "TELEPHONE:".' '.$telephone;
+	//echo '<br>';
+	$streetAddress = $html->find('span[itemprop="streetAddress"]', $j)->innertext;
+	$addressLocality = $html->find('span[itemprop="addressLocality"]', $j)->innertext;
+	$addressRegion = $html->find('span[itemprop="addressRegion"]', $j)->innertext;
+	$postalCode = $html->find('span[itemprop="postalCode"]', $j)->innertext;
+	$address = $streetAddress. ' ' . $addressLocality. ' ' .$addressRegion. ' ' .$postalCode;
+	//echo "ADDRESS:".' '.$address;
+	//echo '<br>';
+	$url = 'http://www.homeadvisor.com'.$rating->href;
+	//echo $url;
+	$curl = curl_init(); 
+	curl_setopt($curl,CURLOPT_URL, $url);
+	curl_setopt($curl, CURLOPT_SSL_VERIFYPEER, FALSE);
+	curl_setopt($curl, CURLOPT_COOKIESESSION, TRUE);
+	curl_setopt($curl, CURLOPT_FOLLOWLOCATION, TRUE);
+	curl_setopt($curl,CURLOPT_RETURNTRANSFER,true);
+	curl_setopt($curl,CURLOPT_HEADER, false); 
+	$result1=curl_exec($curl);
+	curl_close($curl);
+	$html1 = new simple_html_dom(); 
+	$html1->load($result1);
+	$ratingValue = $html1->find('span[itemprop="ratingValue"]', 0)->innertext;
+	if(!$ratingValue)
+	$ratingValue = 0;
+	//echo "RATING:".' '.$ratingValue;
+	//echo '<br>';
+	$ratingCount = $html1->find('span[itemprop="ratingCount"]', 0)->innertext;
+	if(!$ratingCount)
+	$ratingCount = 0;
+	//echo "REVIEWS:".' '.$ratingCount;
+	//echo '<br>';
+	//echo '<br>';
+	$row = $spreadsheet->getActiveSheet()->getHighestRow()+1;
+	$worksheet->SetCellValueByColumnAndRow(0, $row, $service_type);
+	$worksheet->SetCellValueByColumnAndRow(1, $row, $City);
+	$worksheet->SetCellValueByColumnAndRow(2, $row, $State);
+	$worksheet->SetCellValueByColumnAndRow(3, $row, $name);
+	$worksheet->SetCellValueByColumnAndRow(4, $row, $address);
+	$worksheet->SetCellValueByColumnAndRow(5, $row, $telephone);	
+	$worksheet->SetCellValueByColumnAndRow(6, $row, $ratingValue);
+	$worksheet->SetCellValueByColumnAndRow(7, $row, $ratingCount);
+	$html1->clear();
+	unset($html1);
+	}
+	$writer = new PHPExcel_Writer_Excel2007($spreadsheet);
+	$writer->save('SnowRemoval.xlsx');	
+	$html->clear();
+	unset($html);
+	
+	for($p=1; $p < $noPages; $p++){
+	$url = 'http://www.homeadvisor.com'.$topcity[$c]->href.'?startingIndex='.$p*25;
+	$curl = curl_init(); 
+	curl_setopt($curl,CURLOPT_URL, $url);
+	curl_setopt($curl, CURLOPT_SSL_VERIFYPEER, FALSE);
+	curl_setopt($curl, CURLOPT_COOKIESESSION, TRUE);
+	curl_setopt($curl, CURLOPT_FOLLOWLOCATION, TRUE);
+	curl_setopt($curl,CURLOPT_RETURNTRANSFER,true);
+	curl_setopt($curl,CURLOPT_HEADER, false); 
+	$result=curl_exec($curl);
+	curl_close($curl);
+	$html = new simple_html_dom(); 
+	$html->load($result);
+	$count = $html->find('span[itemprop="name"]');
+	$count = sizeof($count);
+	$pages = $html->find("div[class=xl-pagination l-right t-heavy]" , 0);
+	$noPages = sizeof($pages->children);
+	//echo '<br>';
+	for($j=0; $j < $count; $j++){
+	$service_type = 'Snow Removal Services';
+	//echo "SERVICE TYPE:".' '.$service_type;
+	//echo '<br>';
+	$cs = $html->find('span[itemprop="title"]', 3);
+	$City = $cs->innertext;
+	//echo "City:".' '.$City;
+	//echo '<br>';
+	$cs = $html->find('span[itemprop="title"]', 2);
+	$State = $cs->innertext;
+	$name = $html->find('span[itemprop="name"]', $j)->innertext;
+	//echo "NAME:".' '.$name;
+	//echo '<br>';
+	$review = $html->find("div[class=xmd-listing-about-company l-column note]", $j);
+	$rating = $review->children(1);
+	$telephone = $html->find('span[itemprop="telephone"]', $j)->innertext;
+	//echo "TELEPHONE:".' '.$telephone;
+	//echo '<br>';
+	$streetAddress = $html->find('span[itemprop="streetAddress"]', $j)->innertext;
+	$addressLocality = $html->find('span[itemprop="addressLocality"]', $j)->innertext;
+	$addressRegion = $html->find('span[itemprop="addressRegion"]', $j)->innertext;
+	$postalCode = $html->find('span[itemprop="postalCode"]', $j)->innertext;
+	$address = $streetAddress. ' ' . $addressLocality. ' ' .$addressRegion. ' ' .$postalCode;
+	//echo "ADDRESS:".' '.$address;
+	//echo '<br>';
+	$url = 'http://www.homeadvisor.com'.$rating->href;
+	//echo $url;
+	$curl = curl_init(); 
+	curl_setopt($curl,CURLOPT_URL, $url);
+	curl_setopt($curl, CURLOPT_SSL_VERIFYPEER, FALSE);
+	curl_setopt($curl, CURLOPT_COOKIESESSION, TRUE);
+	curl_setopt($curl, CURLOPT_FOLLOWLOCATION, TRUE);
+	curl_setopt($curl,CURLOPT_RETURNTRANSFER,true);
+	curl_setopt($curl,CURLOPT_HEADER, false); 
+	$result1=curl_exec($curl);
+	curl_close($curl);
+	$html1 = new simple_html_dom(); 
+	$html1->load($result1);
+	$ratingValue = $html1->find('span[itemprop="ratingValue"]', 0)->innertext;
+	if(!$ratingValue)
+	$ratingValue = 0;
+	//echo "RATING:".' '.$ratingValue;
+	//echo '<br>';
+	$ratingCount = $html1->find('span[itemprop="ratingCount"]', 0)->innertext;
+	if(!$ratingCount)
+	$ratingCount = 0;
+	//echo "REVIEWS:".' '.$ratingCount;
+	//echo '<br>';
+	//echo '<br>';
+	$row = $spreadsheet->getActiveSheet()->getHighestRow()+1;
+	$worksheet->SetCellValueByColumnAndRow(0, $row, $service_type);
+	$worksheet->SetCellValueByColumnAndRow(1, $row, $City);
+	$worksheet->SetCellValueByColumnAndRow(2, $row, $State);
+	$worksheet->SetCellValueByColumnAndRow(3, $row, $name);
+	$worksheet->SetCellValueByColumnAndRow(4, $row, $address);
+	$worksheet->SetCellValueByColumnAndRow(5, $row, $telephone);	
+	$worksheet->SetCellValueByColumnAndRow(6, $row, $ratingValue);
+	$worksheet->SetCellValueByColumnAndRow(7, $row, $ratingCount);
+	
+	$html1->clear();
+	unset($html1);
+	}
+	$html->clear();
+	unset($html);
+	}
+	
+	$writer->save('SnowRemoval.xlsx');	
+}
+
+?>
